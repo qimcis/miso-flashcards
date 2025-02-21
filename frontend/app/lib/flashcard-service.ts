@@ -5,6 +5,7 @@ import { GenerateResponse, APIErrorResponse } from '@/types/flashcard'
 
 type Deck = Database['public']['Tables']['decks']['Row']
 type Flashcard = Database['public']['Tables']['flashcards']['Row']
+type NewDeck = Omit<Deck, 'id'>
 
 const openai = new OpenAI({
   apiKey: "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",
@@ -181,5 +182,80 @@ export const flashcardService = {
       console.error('Error adding bulk cards:', error);
       throw error;
     }
+  },
+
+  async createDeck(title: string, description: string, category: string, userId: string): Promise<Deck> {
+    console.log('Creating new deck:', { title, description, category, userId });
+    
+    const newDeck: NewDeck = {
+      title,
+      description,
+      category,
+      user_id: userId.toString(), 
+      created_at: new Date().toISOString()
+    };
+  
+    const { data, error } = await supabase
+      .from('decks')
+      .insert([newDeck])
+      .select();
+  
+    if (error) {
+      console.error('Error creating deck:', error);
+      throw error;
+    }
+  
+    if (!data || data.length === 0) {
+      throw new Error('No data returned from insert operation');
+    }
+  
+    return data[0];
+  },
+  
+  async editFlashcard(
+    flashcardId: string,
+    question: string,
+    answer: string
+  ): Promise<Flashcard> {
+    console.log('Editing flashcard:', { flashcardId, question, answer });
+    
+    const { data, error } = await supabase
+      .from('flashcards')
+      .update({
+        question,
+        answer,
+      })
+      .eq('id', flashcardId)
+      .select()
+      .single();
+
+    if (error) {
+      console.error('Error editing flashcard:', error);
+      throw error;
+    }
+
+    if (!data) {
+      throw new Error('No data returned from update operation');
+    }
+
+    console.log('Updated flashcard:', data);
+    return data;
+  },
+
+  async deleteFlashcard(flashcardId: string): Promise<void> {
+    console.log('Deleting flashcard:', flashcardId);
+    
+    const { error } = await supabase
+      .from('flashcards')
+      .delete()
+      .eq('id', flashcardId);
+
+    if (error) {
+      console.error('Error deleting flashcard:', error);
+      throw error;
+    }
+
+    console.log('Successfully deleted flashcard:', flashcardId);
   }
 }
+
