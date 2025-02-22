@@ -11,7 +11,7 @@ export default {
       colors: {
         background: "var(--background)",
         foreground: "var(--foreground)",
-        carpe_green: "#0c8b5c",
+        carpe_green: "#fbbc11",
       },
     },
   },

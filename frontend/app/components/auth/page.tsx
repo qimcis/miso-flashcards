@@ -56,15 +56,15 @@ const AuthPage = () => {
       <div className="w-full lg:w-[880px] p-8 flex flex-col justify-center">
         <div className="w-full max-w-sm mx-auto">
           <Image
-            src="/carpe-diem-logo.png"
+            src="/miso.png"
             alt="Carpe Diem Logo"
-            width={48}
-            height={48}
+            width={128}
+            height={64}
             className="mb-8"
           />
           
           <h1 className="text-4xl font-semibold text-white mb-2">
-            {isLogin ? 'Sign in to Carpe Diem' : 'Create your account'}
+            {isLogin ? 'Sign in to Miso' : 'Create your account'}
           </h1>
           <p className="text-gray-400 mb-8">
             {isLogin ? "Don't have an account? " : 'Already have an account? '}

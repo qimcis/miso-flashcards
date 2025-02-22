@@ -241,14 +241,14 @@ const FlashcardApp = () => {
         <div className="px-4 py-6 border-b border-[#2D2D2D]">
           {isHovered ? (
             <Image
-              src="/carpe-diem-logo.png"
+              src="/miso.png"
               alt="Carpe Diem Logo"
               width={120}
               height={32}
               className="object-contain"
             />
           ) : (
-            <div className="w-8 h-8 bg-carpe_green rounded-lg" />
+            <div className="w-8 h-8 bg-carpe_green rounded-full" />
           )}
         </div>
   
