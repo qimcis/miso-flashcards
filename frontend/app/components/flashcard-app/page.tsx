@@ -1,10 +1,12 @@
 'use client'
 import React, { useState, useEffect } from 'react';
-import { ChevronLeft, ChevronRight, Plus, Folder, Search, LogOut, Pencil, X, Trash2 } from 'lucide-react';
+import { ChevronLeft, ChevronRight, Plus, Folder, Search, LogOut, Pencil, X, Trash2, FileText, Menu } from 'lucide-react';
 import Image from 'next/image';
 import { flashcardService } from '../../lib/flashcard-service';
 import { Database } from '@/types/database';
 import { useAuth } from '@/app/contexts/AuthContext';
+import PDFUploadModal from '../pdfupload';
+import FlashcardReview from '../flashcard-review';
 
 type Deck = Database['public']['Tables']['decks']['Row'];
 type Flashcard = Database['public']['Tables']['flashcards']['Row'];
@@ -39,6 +41,10 @@ const FlashcardApp = () => {
   const [editingCard, setEditingCard] = useState<Flashcard | null>(null);
   const { user } = useAuth();
   const { signOut } = useAuth();
+  const [showPDFUpload, setShowPDFUpload] = useState(false);
+  const [showDeleteDeckConfirm, setShowDeleteDeckConfirm] = useState(false);
+  const [deckToDelete, setDeckToDelete] = useState<Deck | null>(null);
+  const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
 
   const reviewOptions: ReviewOption[] = [
     { name: 'Hard', color: 'bg-carpe_green', factor: 0 },
@@ -88,7 +94,7 @@ const FlashcardApp = () => {
 
   const loadFlashcards = async (deckId: string) => {
     try {
-      const fetchedCards = await flashcardService.getFlashcardsByDeck(deckId);
+      const fetchedCards = await flashcardService.getDueFlashcards(deckId);
       setFlashcards(fetchedCards);
       setCurrentCardIndex(0);
       setShowAnswer(false);
@@ -222,18 +228,70 @@ const FlashcardApp = () => {
     }
   };
 
+  const handleDeleteDeck = async (deck: Deck) => {
+    setDeckToDelete(deck);
+    setShowDeleteDeckConfirm(true);
+  };
+
+  const confirmDeleteDeck = async () => {
+    if (!deckToDelete) return;
+
+    try {
+      await flashcardService.deleteDeck(deckToDelete.id);
+      setDecks(decks.filter(d => d.id !== deckToDelete.id));
+      if (selectedDeck?.id === deckToDelete.id) {
+        setSelectedDeck(null);
+        setFlashcards([]);
+      }
+      setShowDeleteDeckConfirm(false);
+      setDeckToDelete(null);
+    } catch (error) {
+      console.error('Error deleting deck:', error);
+    }
+  };
+
+  const closeMobileMenu = () => {
+    setIsMobileMenuOpen(false);
+  };
+
+  const handleDeckSelection = (deck: Deck) => {
+    setSelectedDeck(deck);
+    closeMobileMenu();
+  };
+
+  const truncateString = (str: string, maxLength: number = 10) => {
+    if (str.length <= maxLength) return str;
+    return str.substring(0, maxLength) + '...';
+  };
 
   if (loading) {
     return <div className="flex h-screen items-center justify-center">Loading...</div>;
   }
 
   return (
-    <div className="flex h-screen bg-[#0C0C0C] font-inter">
-      {/* Sidebar */}
+    <div className="flex h-screen bg-[#0C0C0C] font-inter relative">
+      {/* Mobile Menu Button */}
+      <button 
+        onClick={() => setIsMobileMenuOpen(!isMobileMenuOpen)}
+        className="lg:hidden fixed top-4 left-4 z-50 p-2 rounded-lg bg-[#151515] text-white"
+      >
+        <Menu size={24} />
+      </button>
+
+      {/* Sidebar - Modified for responsiveness */}
       <div 
-        className={`transition-all duration-300 ease-in-out border-r border-[#2D2D2D] bg-[#151515] flex flex-col ${
-          isHovered ? 'w-64' : 'w-16'
-        }`}
+        className={`
+          fixed lg:relative
+          ${isMobileMenuOpen ? 'translate-x-0' : '-translate-x-full lg:translate-x-0'}
+          transition-all duration-300 ease-in-out 
+          border-r border-[#2D2D2D] 
+          bg-[#151515] 
+          h-full
+          z-40
+          flex flex-col
+          ${isHovered ? 'w-64' : 'w-16'}
+          lg:flex
+        `}
         onMouseEnter={() => setIsHovered(true)}
         onMouseLeave={() => setIsHovered(false)}
       >
@@ -282,31 +340,41 @@ const FlashcardApp = () => {
           
           <div className="space-y-0.5 px-2">
             {decks.map((deck) => (
-              <button
+              <div
                 key={deck.id}
-                onClick={() => setSelectedDeck(deck)}
-                className={`w-full flex items-center px-2 py-2 rounded-lg text-left transition-colors ${
-                  selectedDeck?.id === deck.id
-                    ? ' text-white'
-                    : 'text-gray-300 hover:bg-[#1E1E1E] hover:text-white'
-                }`}
+                className="flex items-center group"
               >
-                <Folder size={16} className={`flex-shrink-0 ${
-                  selectedDeck?.id === deck.id ? 'text-carpe_green' : 'text-gray-400'
-                }`} />
+                <button
+                  onClick={() => setSelectedDeck(deck)}
+                  className={`flex-1 flex items-center px-2 py-2 rounded-lg text-left transition-colors ${
+                    selectedDeck?.id === deck.id
+                      ? 'text-white'
+                      : 'text-gray-300 hover:bg-[#1E1E1E] hover:text-white'
+                  }`}
+                >
+                  <Folder size={16} className={`flex-shrink-0 ${
+                    selectedDeck?.id === deck.id ? 'text-carpe_green' : 'text-gray-400'
+                  }`} />
+                  {isHovered && (
+                    <div className="ml-2 flex-1 flex items-center justify-between">
+                      <span className="text-sm">{truncateString(deck.title)}</span>
+                      <span className="ml-2 text-xs text-gray-500">—</span>
+                    </div>
+                  )}
+                </button>
                 {isHovered && (
-                  <>
-                    <span className="ml-2 text-sm truncate">{deck.title}</span>
-                    <span className="ml-auto text-xs text-gray-500">
-                      {selectedDeck?.id === deck.id ? flashcards.length : '—'}
-                    </span>
-                  </>
+                  <button
+                    onClick={() => handleDeleteDeck(deck)}
+                    className="p-2 text-gray-400 hover:text-red-500 opacity-0 group-hover:opacity-100 transition-all"
+                    title="Delete deck"
+                  >
+                    <Trash2 size={16} />
+                  </button>
                 )}
-              </button>
+              </div>
             ))}
           </div>
         </div>
-  
         {/* Logout Button */}
         <div className="px-3 py-4 border-t border-[#2D2D2D]">
           <button 
@@ -319,56 +387,72 @@ const FlashcardApp = () => {
         </div>
       </div>
   
+
+      {/* Mobile menu overlay */}
+      {isMobileMenuOpen && (
+        <div 
+          className="fixed inset-0 bg-black/50 z-30 lg:hidden"
+          onClick={closeMobileMenu}
+        />
+      )}
+
       {/* Main Content Area */}
-      <div className="flex-1 flex flex-col bg-[#0C0C0C]">
+      <div className="flex-1 flex flex-col bg-[#0C0C0C] min-h-screen w-full">
         {/* Top Navigation */}
         <div className="border-b border-[#2D2D2D] bg-[#151515]">
-          <div className="px-8 py-6">
+          <div className="px-4 lg:px-8 py-6 mt-12 lg:mt-0">
             <div className="max-w-4xl mx-auto">
               {selectedDeck ? (
-                <div className="flex justify-between items-center">
+                <div className="space-y-4">
                   <div>
                     <p className="text-sm text-carpe_green mb-1">{selectedDeck.category}</p>
-                    <h1 className="text-2xl font-semibold text-white">{selectedDeck.title}</h1>
+                    <h1 className="text-xl lg:text-2xl font-semibold text-white">{selectedDeck.title}</h1>
                   </div>
-                  <div className="flex gap-3">
+                  <div className="flex flex-wrap gap-2 lg:gap-3">
+                    <button
+                      onClick={() => setShowPDFUpload(true)}
+                      className="px-3 lg:px-4 py-2 bg-[#1E1E1E] text-white rounded-lg hover:bg-[#2D2D2D] transition-colors flex items-center gap-2 text-sm font-medium border border-[#2D2D2D]"
+                    >
+                      <FileText size={16} />
+                      <span className="hidden sm:inline">Upload PDF</span>
+                    </button>
                     <button
                       onClick={() => setShowBulkGenerateForm(true)}
-                      className="px-4 py-2 bg-[#1E1E1E] text-white rounded-lg hover:bg-[#2D2D2D] transition-colors flex items-center gap-2 text-sm font-medium border border-[#2D2D2D]"
+                      className="px-3 lg:px-4 py-2 bg-[#1E1E1E] text-white rounded-lg hover:bg-[#2D2D2D] transition-colors flex items-center gap-2 text-sm font-medium border border-[#2D2D2D]"
                     >
                       <Plus size={16} />
-                      Generate Cards
+                      <span className="hidden sm:inline">Generate</span>
                     </button>
                     <button
                       onClick={() => setShowEditMode(true)}
-                      className="px-4 py-2 bg-[#1E1E1E] text-white rounded-lg hover:bg-[#2D2D2D] transition-colors flex items-center gap-2 text-sm font-medium border border-[#2D2D2D]"
+                      className="px-3 lg:px-4 py-2 bg-[#1E1E1E] text-white rounded-lg hover:bg-[#2D2D2D] transition-colors flex items-center gap-2 text-sm font-medium border border-[#2D2D2D]"
                     >
                       <Pencil size={16} />
-                      Edit Cards
+                      <span className="hidden sm:inline">Edit</span>
                     </button>
                     <button
                       onClick={() => setShowAddCardForm(true)}
-                      className="px-4 py-2 bg-carpe_green text-white rounded-lg hover:opacity-90 transition-opacity flex items-center gap-2 text-sm font-medium"
+                      className="px-3 lg:px-4 py-2 bg-carpe_green text-white rounded-lg hover:opacity-90 transition-opacity flex items-center gap-2 text-sm font-medium"
                     >
                       <Plus size={16} />
-                      Add Card
+                      <span className="hidden sm:inline">Add Card</span>
                     </button>
                   </div>
                 </div>
               ) : (
-                <h1 className="text-2xl font-semibold text-white">Flashcards</h1>
+                <h1 className="text-xl lg:text-2xl font-semibold text-white"></h1>
               )}
             </div>
           </div>
         </div>
   
         {/* Main Content */}
-        <div className="flex-1 p-8 bg-[#0C0C0C]">
+        <div className="flex-1 p-4 lg:p-8 bg-[#0C0C0C]">
           <div className="flex-1 flex flex-col items-center justify-center max-w-3xl mx-auto w-full">
             {showEditMode ? (
               <div className="w-full">
                 <div className="flex justify-between items-center mb-6">
-                  <h2 className="text-xl font-semibold text-white">Edit Flashcards</h2>
+                  <h2 className="text-lg lg:text-xl font-semibold text-white">Edit Flashcards</h2>
                   <button
                     onClick={() => setShowEditMode(false)}
                     className="p-2 text-gray-400 hover:text-white transition-colors"
@@ -447,64 +531,78 @@ const FlashcardApp = () => {
               </div>
             ) : (
               <>
-                {flashcards.length > 0 ? (
-                  <>
-                    {/* Flashcard */}
-                    <div 
-                      onClick={() => setShowAnswer(!showAnswer)}
-                      className="w-full bg-[#151515] rounded-xl border border-[#2D2D2D] p-12 mb-8 min-h-[450px] flex flex-col items-center justify-center text-center cursor-pointer hover:border-carpe_green transition-colors"
-                    >
-                      <div className="text-xl text-gray-200 mb-4">
-                        {showAnswer ? flashcards[currentCardIndex].answer : flashcards[currentCardIndex].question}
-                      </div>
-                      <div className="text-sm text-carpe_green">
-                        Click to reveal {showAnswer ? 'question' : 'answer'}
-                      </div>
-                    </div>
-  
-                    {/* Review buttons */}
-                    {showAnswer && (
-                      <div className="flex gap-4 mb-8 w-full justify-center">
-                        {reviewOptions.map((option) => (
-                          <button
-                            key={option.name}
-                            onClick={() => handleReview(option)}
-                            className={`px-6 py-2 rounded-lg text-white ${option.color} hover:opacity-90 transition-opacity`}
-                          >
-                            {option.name}
-                          </button>
-                        ))}
-                      </div>
-                    )}
-  
-                    {/* Navigation */}
-                    <div className="flex justify-center gap-4">
-                      <button
-                        onClick={previousCard}
-                        disabled={currentCardIndex === 0}
-                        className="p-2 rounded-lg hover:bg-[#1E1E1E] disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
-                      >
-                        <ChevronLeft size={24} className="text-gray-400" />
-                      </button>
-                      <button
-                        onClick={nextCard}
-                        disabled={currentCardIndex === flashcards.length - 1}
-                        className="p-2 rounded-lg hover:bg-[#1E1E1E] disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
-                      >
-                        <ChevronRight size={24} className="text-gray-400" />
-                      </button>
-                    </div>
-                  </>
-                ) : (
-                  <div className="font-semibold text-center text-carpe_green text-2xl">
-                    {selectedDeck ? 'No cards in this deck' : 'Select a deck to start reviewing'}
-                  </div>
-                )}
+{flashcards.length > 0 ? (
+  <div className="w-full max-w-3xl mx-auto">
+    <FlashcardReview
+      card={flashcards[currentCardIndex]}
+      onReview={async (reviewData) => {
+        try {
+          await flashcardService.updateFlashcardReview(
+            reviewData.cardId,
+            reviewData.interval,
+            reviewData.ease,
+            reviewData.nextReview
+          );
+
+          // Remove the reviewed card from the current session
+          const updatedFlashcards = flashcards.filter(
+            (_, index) => index !== currentCardIndex
+          );
+          setFlashcards(updatedFlashcards);
+
+          if (updatedFlashcards.length > 0) {
+            setCurrentCardIndex(currentCardIndex % updatedFlashcards.length);
+          }
+        } catch (error) {
+          console.error('Error updating flashcard review:', error);
+        }
+      }}
+    />
+  </div>
+) : (
+  <div className="flex-1 bg-[#0C0C0C]">
+    <div className="h-[calc(100vh-200px)] flex items-center justify-center px-4 text-center">
+      <div className="font-semibold text-carpe_green text-lg lg:text-2xl">
+        {selectedDeck ? 'No cards due for review' : 'Select a deck to start reviewing!'}
+      </div>
+    </div>
+  </div>
+)}
+
               </>
             )}
           </div>
-        </div>  
+        </div>
 
+{/* Delete Deck Confirmation Modal */}
+{showDeleteDeckConfirm && (
+  <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center p-4">
+    <div className="bg-[#151515] rounded-lg p-6 max-w-[400px] w-full">
+      <h2 className="text-xl font-semibold text-white mb-4">Delete Collection</h2>
+      <div className="text-[#8F9BA8] mb-6 break-words">
+        <p>Are you sure you want to delete "{truncateString(deckToDelete?.title || '', 35)}"?</p>
+        <p className="mt-2">This action cannot be undone and will delete all flashcards in this collection.</p>
+      </div>
+      <div className="flex justify-end gap-3">
+        <button
+          onClick={() => {
+            setShowDeleteDeckConfirm(false);
+            setDeckToDelete(null);
+          }}
+          className="px-4 py-2 text-[#8F9BA8] hover:bg-[#2D2D2D] rounded-lg transition-colors"
+        >
+          Cancel
+        </button>
+        <button
+          onClick={confirmDeleteDeck}
+          className="px-4 py-2 bg-[#F04A4A] text-white rounded-lg hover:opacity-90 transition-opacity"
+        >
+          Delete
+        </button>
+      </div>
+    </div>
+  </div>
+)}
         {/* Dark mode modals */}
         {showAddCardForm && (
           <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center">
@@ -592,6 +690,18 @@ const FlashcardApp = () => {
               </form>
             </div>
           </div>
+        )}
+
+        {selectedDeck && showPDFUpload && (
+          <PDFUploadModal
+            isOpen={showPDFUpload}
+            onClose={() => setShowPDFUpload(false)}
+            deckId={selectedDeck.id}
+            onCardsGenerated={(newCards) => {
+              setFlashcards([...flashcards, ...newCards]);
+              setShowPDFUpload(false);
+            }}
+          />
         )}
 
         {/* New Deck Modal */}

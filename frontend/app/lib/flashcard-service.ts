@@ -256,6 +256,34 @@ export const flashcardService = {
     }
 
     console.log('Successfully deleted flashcard:', flashcardId);
+  },
+  async deleteDeck(deckId: string): Promise<void> {
+    console.log('Deleting deck:', deckId);
+    
+    // First delete all flashcards in the deck
+    const { error: flashcardsError } = await supabase
+      .from('flashcards')
+      .delete()
+      .eq('deck_id', deckId);
+
+    if (flashcardsError) {
+      console.error('Error deleting deck flashcards:', flashcardsError);
+      throw flashcardsError;
+    }
+
+    // Then delete the deck itself
+    const { error: deckError } = await supabase
+      .from('decks')
+      .delete()
+      .eq('id', deckId);
+
+    if (deckError) {
+      console.error('Error deleting deck:', deckError);
+      throw deckError;
+    }
+
+    console.log('Successfully deleted deck and its flashcards:', deckId);
   }
 }
+
 
