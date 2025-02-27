@@ -38,29 +38,29 @@ const REVIEW_OPTIONS: ReviewOption[] = [
     name: 'Hard',
     interval: 360,
     easeAdjustment: 0.85,
-    color: 'bg-[#FFB800]',
+    color: 'px-3 lg:px-4 py-2 bg-[#1E1E1E] text-white rounded-lg hover:bg-[#2D2D2D] transition-colors flex items-center gap-2 text-sm font-medium border border-[#2D2D2D]',
     icon: <Clock size={16} />
   },
   {
     name: 'Good',
     interval: 600,
     easeAdjustment: 1.0,
-    color: 'bg-carpe_green',
+    color: 'px-3 lg:px-4 py-2 bg-[#1E1E1E] text-white rounded-lg hover:bg-[#2D2D2D] transition-colors flex items-center gap-2 text-sm font-medium border border-[#2D2D2D]',
     icon: <ThumbsUp size={16} />
   },
   {
     name: 'Easy',
     interval: 4320,
     easeAdjustment: 1.3,
-    color: 'bg-[#4169E1]',
+    color: 'bg-carpe_green',
     icon: <Rocket size={16} />
   }
 ];
 
-const FlashcardReview: React.FC<FlashcardReviewProps> = ({ 
-  card, 
+const FlashcardReview: React.FC<FlashcardReviewProps> = ({
+  card,
   totalCards,
-  remainingCards, 
+  remainingCards,
   studiedToday,
   onReview,
   onRestartStudy
@@ -95,7 +95,7 @@ const FlashcardReview: React.FC<FlashcardReviewProps> = ({
     setShowAnswer(false);
   };
 
-  // Show completion screen if no remaining cards
+  //shiow completion screen if no remaining cards
   if (remainingCards === 0) {
     return (
       <div className="w-full max-w-3xl mx-auto text-center">
@@ -116,13 +116,14 @@ const FlashcardReview: React.FC<FlashcardReviewProps> = ({
 
   return (
     <div className="w-full max-w-3xl mx-auto">
-      {/* Card count display */}
-      <div className="flex justify-center gap-4 mb-4 text-sm">
-        <span className="text-[#F04A4A]">{remainingCards}</span>
-        <span className="text-carpe_green">+{totalCards - remainingCards}</span>
-        <span className="text-[#4169E1]">+0</span>
+      {/* progress display */}
+      <div className="flex justify-center gap-4 mb-4 text-sm font-medium">
+        <span className="text-[#F04A4A]">Remaining: {remainingCards}</span>
+        <span className="text-carpe_green">Studied: {studiedToday}</span>
+        <span className="text-gray-400">Total: {totalCards}</span>
       </div>
 
+      {/* flashcard */}
       <div 
         onClick={() => setShowAnswer(!showAnswer)}
         className="w-full bg-[#151515] rounded-xl border border-[#2D2D2D] p-4 lg:p-12 
@@ -137,6 +138,7 @@ const FlashcardReview: React.FC<FlashcardReviewProps> = ({
         </div>
       </div>
 
+      {/* review buttons */}
       <div className="flex gap-2 justify-center mt-4">
         {REVIEW_OPTIONS.map(option => (
           <button
@@ -152,6 +154,7 @@ const FlashcardReview: React.FC<FlashcardReviewProps> = ({
         ))}
       </div>
       
+      {/* interval display */}
       {card.interval && (
         <div className="text-center mt-4 text-sm text-gray-500">
           Current interval: {Math.round(card.interval)} minutes

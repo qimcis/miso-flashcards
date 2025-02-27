@@ -1,7 +1,7 @@
 // app/page.tsx
 'use client';
 import { useAuth } from './contexts/AuthContext';
-import FlashcardApp from './components/flashcard-app/page';
+import FlashcardApp from './flashcard-app/page';
 import AuthPage from './components/auth/page';
 
 export default function Home() {

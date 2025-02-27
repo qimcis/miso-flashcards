@@ -1,18 +1,13 @@
 import { supabase } from './supabase'
 import { Database } from '@/types/database'
-import OpenAI from 'openai'
 import { GenerateResponse, APIErrorResponse } from '@/types/flashcard'
 
 type Deck = Database['public']['Tables']['decks']['Row']
 type Flashcard = Database['public']['Tables']['flashcards']['Row']
 type NewDeck = Omit<Deck, 'id'>
 
-const openai = new OpenAI({
-  apiKey: "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",
-  dangerouslyAllowBrowser: true
-});
-
 export const flashcardService = {
+  //fetchhes all decks for a user
   async getDecks(userId: string) {
     console.log('Fetching decks for user:', userId);
     const { data, error } = await supabase
@@ -30,6 +25,7 @@ export const flashcardService = {
     return data;
   },
 
+  //fetches deck by deck id
   async getDeckById(deckId: string) {
     const { data, error } = await supabase
       .from('decks')
@@ -41,6 +37,7 @@ export const flashcardService = {
     return data;
   },
 
+  //fetches flashcards for a deck
   async getFlashcardsByDeck(deckId: string) {
     console.log('Fetching flashcards for deck:', deckId);
     const { data, error } = await supabase
@@ -58,6 +55,7 @@ export const flashcardService = {
     return data;
   },
 
+  //fetches all flashcards that are due today for a user
   async getDueFlashcards(deckId: string) {
     const { data, error } = await supabase
       .from('flashcards')
@@ -70,6 +68,7 @@ export const flashcardService = {
     return data;
   },
 
+  //creates a new flashcard in a deck
   async createFlashcard(deckId: string, question: string, answer: string) {
     console.log('Creating flashcard in deck:', deckId);
     const { data, error } = await supabase
@@ -102,6 +101,7 @@ export const flashcardService = {
     nextReview: Date
   ) {
     console.log('Updating flashcard review:', { flashcardId, interval, easeFactor, nextReview });
+    // updates the flashcard (after it's reviewed)
     const { data, error } = await supabase
       .from('flashcards')
       .update({
@@ -123,9 +123,10 @@ export const flashcardService = {
     return data;
   },
 
+  //generates flashcards (used both for pdf and prompt gen)
   async generateFlashcards(deckId: string, subject: string): Promise<Flashcard[]> {
     console.log('Generating flashcards for subject:', subject);
-    
+    //calls generate flashcards endpoint
     try {
       const response = await fetch('/api/generate-flashcards', {
         method: 'POST',
@@ -141,7 +142,7 @@ export const flashcardService = {
       }
 
       const data = await response.json() as GenerateResponse;
-      
+      //inserts the cards returned into deck
       const flashcardsToInsert = data.flashcards.map((card) => ({
         deck_id: deckId,
         question: card.question,
@@ -174,6 +175,7 @@ export const flashcardService = {
     }
   },
 
+  
   async addBulkCards(deckId: string, subject: string): Promise<Flashcard[]> {
     try {
       const newCards = await flashcardService.generateFlashcards(deckId, subject);
@@ -183,7 +185,8 @@ export const flashcardService = {
       throw error;
     }
   },
-
+  
+  //creates a new deck 
   async createDeck(title: string, description: string, category: string, userId: string): Promise<Deck> {
     console.log('Creating new deck:', { title, description, category, userId });
     
@@ -212,6 +215,7 @@ export const flashcardService = {
     return data[0];
   },
   
+  //edits the content of a flashcard
   async editFlashcard(
     flashcardId: string,
     question: string,
@@ -242,6 +246,8 @@ export const flashcardService = {
     return data;
   },
 
+
+  //deletes flashcard from deck
   async deleteFlashcard(flashcardId: string): Promise<void> {
     console.log('Deleting flashcard:', flashcardId);
     
@@ -260,7 +266,7 @@ export const flashcardService = {
   async deleteDeck(deckId: string): Promise<void> {
     console.log('Deleting deck:', deckId);
     
-    // First delete all flashcards in the deck
+    //first delete all flashcards in the deck
     const { error: flashcardsError } = await supabase
       .from('flashcards')
       .delete()
@@ -271,7 +277,7 @@ export const flashcardService = {
       throw flashcardsError;
     }
 
-    // Then delete the deck itself
+    //then delete the deck itself
     const { error: deckError } = await supabase
       .from('decks')
       .delete()
@@ -283,6 +289,23 @@ export const flashcardService = {
     }
 
     console.log('Successfully deleted deck and its flashcards:', deckId);
+  },
+
+  async getStudiedToday(deckId: string): Promise<number> {
+    //gets flashcards that have been reviewed within the last 24h 
+    const { data, error } = await supabase
+      .from('flashcards')
+      .select('id')
+      .eq('deck_id', deckId)
+      .gte('last_reviewed', new Date(new Date().setHours(0, 0, 0, 0)).toISOString())
+      .lt('last_reviewed', new Date(new Date().setHours(23, 59, 59, 999)).toISOString());
+
+    if (error) {
+      console.error('Error getting studied cards:', error);
+      return 0;
+    }
+
+    return data.length;
   }
 }
 
